@@ -166,8 +166,14 @@ async function fetchDisruptionsBulk() {
   return data.disruptions || [];
 }
 
+function stripHtml(str) {
+  return (str || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // Ne garde que les perturbations dont la ligne est concernée ET dont l'une des
 // périodes d'application couvre l'instant présent (statut réellement "en cours").
+// On garde toute perturbation active sur la ligne, même hors du tronçon utilisé : une
+// coupure ailleurs sur la ligne peut quand même provoquer des retards en cascade.
 function activeDisruptionsForLine(all, idfmLineId) {
   const now = getNow().getTime();
   return all
@@ -179,7 +185,7 @@ function activeDisruptionsForLine(all, idfmLineId) {
     }))
     .map((d) => ({
       title: d.title || d.shortMessage || '',
-      text: d.shortMessage || d.title || '',
+      text: stripHtml(d.message) || d.shortMessage || d.title || '',
       severity: d.severity || '',
       cause: d.cause || '',
     }));
@@ -285,7 +291,8 @@ function renderTraffic(el, live, messages, links, error) {
     ul.className = 'traffic-list';
     live.forEach((d) => {
       const li = document.createElement('li');
-      li.innerHTML = `<span class="traffic-channel">${d.cause || 'En cours'}</span> ${d.title}`;
+      const extra = d.text && d.text !== d.title ? `<br><span class="muted">${d.text}</span>` : '';
+      li.innerHTML = `<span class="traffic-channel">${d.cause || 'En cours'}</span> ${d.title}${extra}`;
       ul.appendChild(li);
     });
     el.appendChild(ul);
