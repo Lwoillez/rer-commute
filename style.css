@@ -284,17 +284,6 @@ main {
 .train-status.status-delayed { color: var(--warn); }
 .train-status.status-cancelled { color: var(--error); }
 
-.train-source {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: var(--muted);
-}
-
-.train-source.theoretical {
-  color: var(--warn);
-}
-
 .stop-detail {
   list-style: none;
   margin: 0;

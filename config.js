@@ -4,12 +4,9 @@
 // en production, n'est pas nécessaire côté client (voir /api/prim.js).
 const CONFIG = {
   stops: {
-    // transilienId : identifiant utilisé par l'API "fiches horaires" de Transilien
-    // (horaires théoriques, journée complète), en repli quand le temps réel PRIM
-    // (horizon ~2h30) ne couvre pas l'heure demandée.
-    hacquiniere: { ref: 'STIF:StopArea:SP:47046:', name: 'La Hacquinière', transilienId: 'stop_area:IDFM:62825' },
-    chatelet: { ref: 'STIF:StopArea:SP:45102:', name: 'Châtelet - Les Halles', transilienId: 'stop_area:IDFM:474151' },
-    ladefense: { ref: 'STIF:StopArea:SP:470549:', name: 'La Défense', transilienId: 'stop_area:IDFM:71517' },
+    hacquiniere: { ref: 'STIF:StopArea:SP:47046:', name: 'La Hacquinière' },
+    chatelet: { ref: 'STIF:StopArea:SP:45102:', name: 'Châtelet - Les Halles' },
+    ladefense: { ref: 'STIF:StopArea:SP:470549:', name: 'La Défense' },
   },
 
   lines: {
