@@ -1,0 +1,328 @@
+:root {
+  --bg: #f4f5f7;
+  --card-bg: #ffffff;
+  --text: #1c1e21;
+  --muted: #6b7280;
+  --border: #e2e4e8;
+  --accent: #2b6cb0;
+  --rer-a: #eb2132;
+  --rer-b: #5091cb;
+  --ok: #1a7f37;
+  --warn: #b7791f;
+  --error: #c0272d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181c;
+    --card-bg: #1f2226;
+    --text: #edeef0;
+    --muted: #9aa0a6;
+    --border: #2c2f34;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding-bottom: 2rem;
+}
+
+.app-header {
+  padding: 1rem 1rem 0.75rem;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-header h1 {
+  font-size: 1.15rem;
+  margin: 0 0 0.15rem;
+}
+
+.route-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sens-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sens-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.sens-toggle button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.refresh-btn {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.clock-row {
+  margin-top: 0.6rem;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.card h2 {
+  font-size: 1rem;
+  margin: 0 0 0.6rem;
+}
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.summary-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.summary-item { flex: 1; }
+
+.summary-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.summary-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.summary-arrow {
+  color: var(--muted);
+  font-size: 1.2rem;
+}
+
+.status-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.muted { color: var(--muted); font-size: 0.85rem; }
+.error { color: var(--error); font-size: 0.9rem; }
+
+.train-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.train-item {
+  border-radius: 8px;
+  background: rgba(127,127,127,0.06);
+  overflow: hidden;
+}
+
+.train-item.highlight {
+  outline: 2px solid var(--accent);
+  background: rgba(43,108,176,0.12);
+}
+
+.train-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  flex-wrap: wrap;
+  cursor: pointer;
+}
+
+.train-time {
+  font-weight: 700;
+  min-width: 3.2rem;
+}
+
+.train-dest { flex: 1; }
+
+.train-platform {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.train-right {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.train-stopcount {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.train-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.train-status.status-ontime { color: var(--ok); }
+.train-status.status-delayed { color: var(--warn); }
+.train-status.status-cancelled { color: var(--error); }
+
+.stop-detail {
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem 0.6rem 0.6rem 2.2rem;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.stop-detail[hidden] {
+  display: none;
+}
+
+.stop-detail-time {
+  font-weight: 600;
+  min-width: 3rem;
+  display: inline-block;
+}
+
+.eta-time {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.pill-ok { background: rgba(26,127,55,0.15); color: var(--ok); }
+.pill-warn { background: rgba(183,121,31,0.15); color: var(--warn); }
+.pill-error { background: rgba(192,39,45,0.15); color: var(--error); }
+
+.traffic-header { margin-bottom: 0.5rem; }
+
+.traffic-list {
+  list-style: none;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.traffic-channel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 0.3rem;
+}
+
+.source-links { font-size: 0.85rem; }
+.source-links a { color: var(--accent); }
+
+.traffic-upcoming {
+  margin: 0.5rem 0;
+}
+
+.traffic-upcoming summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.traffic-upcoming .traffic-list {
+  margin-top: 0.5rem;
+}
+
+.settings summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.settings label {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.settings input {
+  display: block;
+  margin-top: 0.25rem;
+  width: 100%;
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}

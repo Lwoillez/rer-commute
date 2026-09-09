@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RER Hacquinière ↔ La Défense</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>La Hacquinière ↔ La Défense</h1>
+    <div id="route-label" class="route-label"></div>
+    <div class="controls">
+      <div class="sens-toggle">
+        <button id="btn-aller" type="button">Aller (matin)</button>
+        <button id="btn-retour" type="button">Retour (soir)</button>
+      </div>
+      <button id="refresh-btn" type="button" class="refresh-btn">⟳ Rafraîchir</button>
+    </div>
+    <div class="clock-row">
+      <span>Heure actuelle : <strong id="current-time">--:--</strong></span>
+      <span id="status" class="muted"></span>
+    </div>
+  </header>
+
+  <main>
+    <section class="card summary-card">
+      <div class="summary-grid">
+        <div class="summary-item">
+          <div class="summary-label">Départ</div>
+          <div class="summary-value" id="summary-depart-time">--:--</div>
+          <div class="muted" id="summary-depart-station"></div>
+        </div>
+        <div class="summary-arrow">→</div>
+        <div class="summary-item">
+          <div class="summary-label">Arrivée prévue</div>
+          <div class="summary-value" id="summary-arrivee-time">--:--</div>
+          <div class="muted" id="summary-arrivee-station"></div>
+        </div>
+      </div>
+      <div class="status-pills">
+        <span id="status-pill-a" class="pill">RER A</span>
+        <span id="status-pill-b" class="pill">RER B</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 id="leg1-title">Prochains départs</h2>
+      <div id="leg1-trains"></div>
+    </section>
+
+    <section class="card">
+      <h2 id="leg2-title">Correspondance</h2>
+      <p id="correspondance-info" class="muted"></p>
+      <div id="leg2-trains"></div>
+    </section>
+
+    <section class="card">
+      <h2>Trafic RER A</h2>
+      <div id="traffic-a"></div>
+    </section>
+
+    <section class="card">
+      <h2>Trafic RER B</h2>
+      <div id="traffic-b"></div>
+    </section>
+
+    <details class="card settings">
+      <summary>Réglages (durées de trajet estimées)</summary>
+      <label>La Hacquinière ↔ Châtelet-Les Halles (RER B), minutes :
+        <input id="duration-hacquiniere-chatelet" type="number" min="1" max="90" />
+      </label>
+      <label>Châtelet-Les Halles ↔ La Défense (RER A), minutes :
+        <input id="duration-chatelet-defense" type="number" min="1" max="60" />
+      </label>
+      <p class="muted">Ces durées servent uniquement à estimer l'heure d'arrivée à la correspondance et à destination. Ajustez-les selon votre expérience réelle.</p>
+    </details>
+  </main>
+
+  <script src="config.local.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
