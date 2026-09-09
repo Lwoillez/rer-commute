@@ -2,6 +2,20 @@ const PRIM_BASE = 'https://prim.iledefrance-mobilites.fr/marketplace';
 const TRANSFER_BUFFER_MIN = 3; // temps minimum pour changer de quai à la correspondance
 const PARIS_TZ = 'Europe/Paris';
 
+// En local (npx serve), on appelle directement l'API PRIM avec la clé de config.local.js.
+// Une fois déployé (Vercel), on passe par /api/prim, qui garde la clé côté serveur.
+const IS_LOCAL_DEV = ['localhost', '127.0.0.1'].includes(location.hostname)
+  && typeof CONFIG !== 'undefined' && !!CONFIG.apiKey;
+
+async function primFetch(path, params) {
+  if (IS_LOCAL_DEV) {
+    const qs = new URLSearchParams(params).toString();
+    return fetch(`${PRIM_BASE}/${path}${qs ? `?${qs}` : ''}`, { headers: { apiKey: CONFIG.apiKey } });
+  }
+  const qs = new URLSearchParams({ path, ...params }).toString();
+  return fetch(`/api/prim?${qs}`);
+}
+
 const state = {
   sens: localStorage.getItem('rer.sens') || defaultSens(),
   durations: loadDurations(),
@@ -41,8 +55,7 @@ function stopIdFromRef(ref) {
 }
 
 async function fetchStopMonitoring(stopRef, lineRef) {
-  const url = `${PRIM_BASE}/stop-monitoring?MonitoringRef=${encodeURIComponent(stopRef)}&LineRef=${encodeURIComponent(lineRef)}`;
-  const res = await fetch(url, { headers: { apiKey: CONFIG.apiKey } });
+  const res = await primFetch('stop-monitoring', { MonitoringRef: stopRef, LineRef: lineRef });
   if (!res.ok) throw new Error(`Horaires indisponibles (HTTP ${res.status})`);
   const data = await res.json();
   const visits = data?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
@@ -63,8 +76,7 @@ async function fetchStopMonitoring(stopRef, lineRef) {
 }
 
 async function fetchEstimatedTimetable(lineRef) {
-  const url = `${PRIM_BASE}/estimated-timetable?LineRef=${encodeURIComponent(lineRef)}`;
-  const res = await fetch(url, { headers: { apiKey: CONFIG.apiKey } });
+  const res = await primFetch('estimated-timetable', { LineRef: lineRef });
   if (!res.ok) throw new Error(`Détail des arrêts indisponible (HTTP ${res.status})`);
   const data = await res.json();
   const frames = data?.Siri?.ServiceDelivery?.EstimatedTimetableDelivery?.[0]?.EstimatedJourneyVersionFrame || [];
@@ -111,8 +123,7 @@ function towardsDestination(trains, terminiList) {
 }
 
 async function fetchTraffic(lineRef) {
-  const url = `${PRIM_BASE}/general-message?LineRef=${encodeURIComponent(lineRef)}`;
-  const res = await fetch(url, { headers: { apiKey: CONFIG.apiKey } });
+  const res = await primFetch('general-message', { LineRef: lineRef });
   if (!res.ok) throw new Error(`Trafic indisponible (HTTP ${res.status})`);
   const data = await res.json();
   const msgs = data?.Siri?.ServiceDelivery?.GeneralMessageDelivery?.[0]?.InfoMessage || [];
@@ -141,8 +152,7 @@ function parseNaiveLocal(str) {
 }
 
 async function fetchDisruptionsBulk() {
-  const url = `${PRIM_BASE}/disruptions_bulk/disruptions/v2`;
-  const res = await fetch(url, { headers: { apiKey: CONFIG.apiKey } });
+  const res = await primFetch('disruptions_bulk/disruptions/v2', {});
   if (!res.ok) throw new Error(`Perturbations indisponibles (HTTP ${res.status})`);
   const data = await res.json();
   return data.disruptions || [];
