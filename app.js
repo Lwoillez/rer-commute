@@ -312,6 +312,21 @@ function renderStatusPill(el, label, live, error) {
   el.className = `pill ${info.className}`;
 }
 
+// Affiche, juste sous les pastilles de statut en haut de page, le détail des
+// perturbations en cours (le cas échéant) pour un accès immédiat sans avoir à descendre.
+function renderSummaryDisruptions(el, liveA, liveB) {
+  el.innerHTML = '';
+  const entries = [
+    ...liveA.map((d) => ({ label: 'RER A', ...d })),
+    ...liveB.map((d) => ({ label: 'RER B', ...d })),
+  ];
+  entries.forEach((d) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>${d.label}</strong> ${d.title}`;
+    el.appendChild(li);
+  });
+}
+
 function setStatus(text) {
   document.getElementById('status').textContent = text;
 }
@@ -461,6 +476,7 @@ async function loadData() {
   document.getElementById('summary-arrivee-station').textContent = destStop.name + (etaFinal && !etaFinalIsReal ? ' (estimation)' : '');
   renderStatusPill(document.getElementById('status-pill-a'), 'RER A', liveA, liveError);
   renderStatusPill(document.getElementById('status-pill-b'), 'RER B', liveB, liveError);
+  renderSummaryDisruptions(document.getElementById('summary-disruptions'), liveA, liveB);
 
   // Trafic détaillé : perturbations en cours (live) + informations/travaux programmés
   renderTraffic(trafficAEl, liveA, trafficA, CONFIG.trafficLinks.A, liveError || trafficAError);
