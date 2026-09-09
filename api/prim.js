@@ -25,7 +25,13 @@ export default async function handler(req, res) {
   const url = `https://prim.iledefrance-mobilites.fr/marketplace/${path}${qs ? `?${qs}` : ''}`;
 
   try {
-    const r = await fetch(url, { headers: { apiKey: process.env.PRIM_API_KEY } });
+    const r = await fetch(url, {
+      headers: {
+        apiKey: process.env.PRIM_API_KEY,
+        // Sans cet en-tête, l'API répond parfois en anglais (site francophone uniquement).
+        'Accept-Language': 'fr-FR,fr;q=0.9',
+      },
+    });
     const text = await r.text();
     res.status(r.status).setHeader('Content-Type', 'application/json').send(text);
   } catch (e) {

@@ -10,7 +10,9 @@ const IS_LOCAL_DEV = ['localhost', '127.0.0.1'].includes(location.hostname)
 async function primFetch(path, params) {
   if (IS_LOCAL_DEV) {
     const qs = new URLSearchParams(params).toString();
-    return fetch(`${PRIM_BASE}/${path}${qs ? `?${qs}` : ''}`, { headers: { apiKey: CONFIG.apiKey } });
+    return fetch(`${PRIM_BASE}/${path}${qs ? `?${qs}` : ''}`, {
+      headers: { apiKey: CONFIG.apiKey, 'Accept-Language': 'fr-FR,fr;q=0.9' },
+    });
   }
   const qs = new URLSearchParams({ path, ...params }).toString();
   return fetch(`/api/prim?${qs}`);
@@ -337,7 +339,8 @@ function renderSummaryDisruptions(el, liveA, liveB) {
   ];
   entries.forEach((d) => {
     const li = document.createElement('li');
-    li.innerHTML = `<strong>${d.label}</strong> ${d.title}`;
+    const extra = d.text && d.text !== d.title ? `<br><span class="muted">${d.text}</span>` : '';
+    li.innerHTML = `<strong>${d.label}</strong> ${d.title}${extra}`;
     el.appendChild(li);
   });
 }
