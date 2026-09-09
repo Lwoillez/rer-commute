@@ -215,12 +215,13 @@ function renderTrainList(el, trains, { emptyText, highlightRef, etMap, fromName,
     const allCalls = t.journeyRef && etMap ? etMap.get(t.journeyRef) : null;
     const calls = callsBetween(allCalls, fromName, toName);
     const stopCount = calls ? calls.length : null;
+    const arrivalAtTarget = calls && calls.length ? calls[calls.length - 1] : null;
 
     const row = document.createElement('div');
     row.className = 'train-row';
     row.innerHTML = `
       <span class="train-time">${fmtTime(t.expectedDeparture)}</span>
-      <span class="train-dest">${t.destination}</span>
+      <span class="train-dest">${t.destination}${arrivalAtTarget ? ` <span class="train-eta">(${toName} ${fmtTime(arrivalAtTarget.time)})</span>` : ''}</span>
       ${t.platform ? `<span class="train-platform">V${t.platform}</span>` : ''}
       <span class="train-right">
         ${stopCount != null ? `<span class="train-stopcount">${stopCount} arrêt${stopCount > 1 ? 's' : ''}</span>` : ''}

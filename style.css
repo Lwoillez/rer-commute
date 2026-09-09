@@ -203,6 +203,12 @@ main {
 
 .train-dest { flex: 1; }
 
+.train-eta {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .train-platform {
   font-size: 0.75rem;
   color: var(--muted);
