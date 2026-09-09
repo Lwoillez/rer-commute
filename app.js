@@ -16,10 +16,87 @@ async function primFetch(path, params) {
   return fetch(`/api/prim?${qs}`);
 }
 
+// --- Horaires théoriques (repli quand le temps réel PRIM ne couvre pas l'heure demandée) ---
+// Le proxy /api/theoretical n'existe qu'en production (fonction serverless Vercel) ; en local
+// (npx serve, pas de backend), ce repli est simplement indisponible.
+
+function dateStrForToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function parseNaiveLocalISO(str) {
+  // Format "2026-09-09T05:02:44", exprimé en heure locale de Paris (pas de suffixe timezone).
+  if (!str) return null;
+  const [datePart, timePart] = str.split('T');
+  const [y, mo, d] = datePart.split('-').map(Number);
+  const [h, mi, s] = (timePart || '0:0:0').split(':').map(Number);
+  return new Date(y, mo - 1, d, h, mi, s || 0);
+}
+
+function theoreticalCacheKey(originKey, destKey, dateStr) {
+  return `rer.theoretical.${originKey}.${destKey}.${dateStr}`;
+}
+
+function getTheoreticalCache(originKey, destKey, dateStr) {
+  try {
+    const raw = localStorage.getItem(theoreticalCacheKey(originKey, destKey, dateStr));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setTheoreticalCache(originKey, destKey, dateStr, trains) {
+  const payload = { fetchedAt: new Date().toISOString(), trains };
+  localStorage.setItem(theoreticalCacheKey(originKey, destKey, dateStr), JSON.stringify(payload));
+}
+
+async function fetchTheoreticalOD(originKey, destKey, dateStr) {
+  const origin = CONFIG.stops[originKey];
+  const dest = CONFIG.stops[destKey];
+  const qs = new URLSearchParams({
+    originId: origin.transilienId,
+    originLabel: origin.name,
+    destId: dest.transilienId,
+    destLabel: dest.name,
+    date: dateStr,
+  }).toString();
+  const res = await fetch(`/api/theoretical?${qs}`);
+  if (!res.ok) throw new Error(`Horaire théorique indisponible (HTTP ${res.status})`);
+  const data = await res.json();
+  return (data.results || []).map((r) => ({
+    destination: dest.name,
+    expectedDeparture: parseNaiveLocalISO(r.departureDate).toISOString(),
+    theoreticalArrival: parseNaiveLocalISO(r.arrivalDate),
+    platform: '',
+    status: '',
+    journeyRef: null,
+    source: 'theoretical',
+  }));
+}
+
+// Trains théoriques en cache, filtrés aux départs après "maintenant" (simulé ou réel).
+function theoreticalFallback(originKey, destKey) {
+  const cached = getTheoreticalCache(originKey, destKey, dateStrForToday());
+  if (!cached) return [];
+  const now = getNow().getTime();
+  return cached.trains
+    .filter((t) => new Date(t.expectedDeparture).getTime() > now)
+    .sort((a, b) => new Date(a.expectedDeparture) - new Date(b.expectedDeparture));
+}
+
 const state = {
   sens: localStorage.getItem('rer.sens') || defaultSens(),
   durations: loadDurations(),
+  timeOverride: null, // Date | null - permet de simuler une autre heure actuelle
 };
+
+// Heure "actuelle" utilisée partout dans l'app : l'heure réelle, sauf si l'utilisateur
+// a choisi de simuler une autre heure (voir le sélecteur dans l'en-tête).
+function getNow() {
+  return state.timeOverride ? new Date(state.timeOverride) : new Date();
+}
 
 function defaultSens() {
   const hour = new Date().getHours();
@@ -70,6 +147,7 @@ async function fetchStopMonitoring(stopRef, lineRef) {
         platform: call.DeparturePlatformName?.value || '',
         status: call.DepartureStatus || '',
         journeyRef: mvj.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || null,
+        source: 'live',
       };
     })
     .filter((t) => t.expectedDeparture);
@@ -114,7 +192,7 @@ function matchesTermini(destination, terminiList) {
 }
 
 function towardsDestination(trains, terminiList) {
-  const now = Date.now();
+  const now = getNow().getTime();
   return trains
     .filter((t) => matchesTermini(t.destination, terminiList))
     // Ne garder que les départs strictement après l'heure actuelle.
@@ -161,7 +239,7 @@ async function fetchDisruptionsBulk() {
 // Ne garde que les perturbations dont la ligne est concernée ET dont l'une des
 // périodes d'application couvre l'instant présent (statut réellement "en cours").
 function activeDisruptionsForLine(all, idfmLineId) {
-  const now = Date.now();
+  const now = getNow().getTime();
   return all
     .filter((d) => JSON.stringify(d).includes(idfmLineId))
     .filter((d) => (d.applicationPeriods || []).some((p) => {
@@ -215,15 +293,17 @@ function renderTrainList(el, trains, { emptyText, highlightRef, etMap, fromName,
     const allCalls = t.journeyRef && etMap ? etMap.get(t.journeyRef) : null;
     const calls = callsBetween(allCalls, fromName, toName);
     const stopCount = calls ? calls.length : null;
-    const arrivalAtTarget = calls && calls.length ? calls[calls.length - 1] : null;
+    const arrivalTime = (calls && calls.length ? calls[calls.length - 1].time : null) || t.theoreticalArrival || null;
+    const isTheoretical = t.source === 'theoretical';
 
     const row = document.createElement('div');
     row.className = 'train-row';
     row.innerHTML = `
       <span class="train-time">${fmtTime(t.expectedDeparture)}</span>
-      <span class="train-dest">${t.destination}${arrivalAtTarget ? ` <span class="train-eta">(${toName} ${fmtTime(arrivalAtTarget.time)})</span>` : ''}</span>
+      <span class="train-dest">${t.destination}${arrivalTime ? ` <span class="train-eta">(${toName} ${fmtTime(arrivalTime)})</span>` : ''}</span>
       ${t.platform ? `<span class="train-platform">V${t.platform}</span>` : ''}
       <span class="train-right">
+        <span class="train-source ${isTheoretical ? 'theoretical' : 'live'}">${isTheoretical ? 'Théorique' : 'Temps réel'}</span>
         ${stopCount != null ? `<span class="train-stopcount">${stopCount} arrêt${stopCount > 1 ? 's' : ''}</span>` : ''}
         ${st ? `<span class="train-status ${st.className}">${st.text}</span>` : ''}
       </span>
@@ -380,9 +460,15 @@ async function loadData() {
 
   if (results[0].status === 'fulfilled') leg1Trains = towardsDestination(results[0].value, CONFIG.termini[route.leg1.towardsKey]);
   else leg1Error = results[0].reason;
+  if (!leg1Error && !leg1Trains.length) {
+    leg1Trains = theoreticalFallback(route.leg1.stopKey, route.correspondanceKey);
+  }
 
   if (results[1].status === 'fulfilled') leg2AllTrains = towardsDestination(results[1].value, CONFIG.termini[route.leg2.towardsKey]);
   else leg2Error = results[1].reason;
+  if (!leg2Error && !leg2AllTrains.length) {
+    leg2AllTrains = theoreticalFallback(route.correspondanceKey, route.destinationKey);
+  }
 
   if (results[2].status === 'fulfilled') trafficA = results[2].value;
   else trafficAError = results[2].reason;
@@ -404,29 +490,36 @@ async function loadData() {
   const etMap2 = route.leg2.lineKey === 'A' ? etMapA : etMapB;
 
   // Prochains 4 trains au départ
+  const emptyLeg1Text = state.timeOverride
+    ? "Aucun train à cette heure simulée, ni en temps réel (horizon ~2h30) ni dans l'horaire théorique en cache. Essayez le bouton « Horaires théoriques du jour »."
+    : 'Aucun train trouvé.';
   if (leg1Error) {
     leg1El.innerHTML = `<p class="error">${leg1Error.message || leg1Error}</p>`;
   } else {
-    renderTrainList(leg1El, leg1Trains.slice(0, 4), { emptyText: 'Aucun train trouvé.', etMap: etMap1, fromName: stop1.name, toName: stop2.name });
+    renderTrainList(leg1El, leg1Trains.slice(0, 4), { emptyText: emptyLeg1Text, etMap: etMap1, fromName: stop1.name, toName: stop2.name });
   }
 
   // Fenêtre de correspondance + heure d'arrivée finale
   let etaCorrespondance = null;
-  let etaCorrespondanceIsReal = false;
+  let etaCorrespondanceSource = 'estimate'; // 'live' | 'theoretical' | 'estimate'
   let chosenLeg2 = null;
   let etaFinal = null;
-  let etaFinalIsReal = false;
+  let etaFinalSource = 'estimate';
   let leg2Window = [];
 
   if (!leg1Error && leg1Trains.length) {
     const nextTrain = leg1Trains[0];
     // On privilégie l'horaire réel de CE train à la correspondance (via le détail des
-    // arrêts déjà récupéré) plutôt qu'une durée moyenne estimée, plus fiable.
+    // arrêts déjà récupéré), puis l'horaire théorique exact de ce train si disponible,
+    // et seulement en dernier recours une durée moyenne estimée.
     const nextTrainCalls = callsBetween(nextTrain.journeyRef && etMap1 ? etMap1.get(nextTrain.journeyRef) : null, stop1.name, stop2.name);
     const realArrival = nextTrainCalls && nextTrainCalls.length ? nextTrainCalls[nextTrainCalls.length - 1].time : null;
     if (realArrival) {
       etaCorrespondance = new Date(realArrival);
-      etaCorrespondanceIsReal = true;
+      etaCorrespondanceSource = 'live';
+    } else if (nextTrain.theoreticalArrival) {
+      etaCorrespondance = new Date(nextTrain.theoreticalArrival);
+      etaCorrespondanceSource = 'theoretical';
     } else {
       etaCorrespondance = new Date(new Date(nextTrain.expectedDeparture).getTime() + leg1DurationMin * 60000);
     }
@@ -449,7 +542,10 @@ async function loadData() {
         const realFinal = chosenLeg2Calls && chosenLeg2Calls.length ? chosenLeg2Calls[chosenLeg2Calls.length - 1].time : null;
         if (realFinal) {
           etaFinal = new Date(realFinal);
-          etaFinalIsReal = true;
+          etaFinalSource = 'live';
+        } else if (chosenLeg2.theoreticalArrival) {
+          etaFinal = new Date(chosenLeg2.theoreticalArrival);
+          etaFinalSource = 'theoretical';
         } else {
           etaFinal = new Date(new Date(chosenLeg2.expectedDeparture).getTime() + leg2DurationMin * 60000);
         }
@@ -457,8 +553,9 @@ async function loadData() {
     }
   }
 
+  const sourceLabel = { live: 'temps réel', theoretical: 'horaire théorique', estimate: 'estimation' };
   document.getElementById('correspondance-info').textContent = etaCorrespondance
-    ? `Arrivée à la correspondance : ${fmtTime(etaCorrespondance)} (${etaCorrespondanceIsReal ? 'horaire réel du premier train ci-dessus' : `estimation : premier train ci-dessus + ${leg1DurationMin} min`})`
+    ? `Arrivée à la correspondance : ${fmtTime(etaCorrespondance)} (${etaCorrespondanceSource === 'estimate' ? `estimation : premier train ci-dessus + ${leg1DurationMin} min` : `${sourceLabel[etaCorrespondanceSource]} du premier train ci-dessus`})`
     : '';
 
   if (leg2Error) {
@@ -473,7 +570,7 @@ async function loadData() {
   document.getElementById('summary-depart-time').textContent = fmtTime(leg1Trains[0]?.expectedDeparture);
   document.getElementById('summary-depart-station').textContent = stop1.name;
   document.getElementById('summary-arrivee-time').textContent = etaFinal ? fmtTime(etaFinal) : '--:--';
-  document.getElementById('summary-arrivee-station').textContent = destStop.name + (etaFinal && !etaFinalIsReal ? ' (estimation)' : '');
+  document.getElementById('summary-arrivee-station').textContent = destStop.name + (etaFinal && etaFinalSource !== 'live' ? ` (${sourceLabel[etaFinalSource]})` : '');
   renderStatusPill(document.getElementById('status-pill-a'), 'RER A', liveA, liveError);
   renderStatusPill(document.getElementById('status-pill-b'), 'RER B', liveB, liveError);
   renderSummaryDisruptions(document.getElementById('summary-disruptions'), liveA, liveB);
@@ -487,7 +584,79 @@ async function loadData() {
 }
 
 function tickClock() {
-  document.getElementById('current-time').textContent = fmtTime(new Date());
+  document.getElementById('current-time').textContent = fmtTime(getNow());
+  document.querySelector('.clock-controls').classList.toggle('simulated', !!state.timeOverride);
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function initTimeOverride() {
+  const hourSelect = document.getElementById('time-override-hour');
+  const minuteSelect = document.getElementById('time-override-minute');
+  const resetBtn = document.getElementById('time-override-reset');
+
+  hourSelect.innerHTML = '<option value="">--</option>' + Array.from({ length: 24 }, (_, h) => `<option value="${h}">${pad2(h)}</option>`).join('');
+  minuteSelect.innerHTML = '<option value="">--</option>' + Array.from({ length: 60 }, (_, m) => `<option value="${m}">${pad2(m)}</option>`).join('');
+
+  function applyOverride() {
+    if (hourSelect.value === '' || minuteSelect.value === '') return;
+    const simulated = new Date();
+    simulated.setHours(Number(hourSelect.value), Number(minuteSelect.value), 0, 0);
+    state.timeOverride = simulated;
+    tickClock();
+    loadData();
+  }
+
+  hourSelect.addEventListener('change', applyOverride);
+  minuteSelect.addEventListener('change', applyOverride);
+
+  resetBtn.addEventListener('click', () => {
+    state.timeOverride = null;
+    hourSelect.value = '';
+    minuteSelect.value = '';
+    tickClock();
+    loadData();
+  });
+}
+
+function theoreticalStatusText() {
+  const dateStr = dateStrForToday();
+  const pairs = [['hacquiniere', 'chatelet'], ['chatelet', 'ladefense'], ['ladefense', 'chatelet'], ['chatelet', 'hacquiniere']];
+  const times = pairs
+    .map(([o, d]) => getTheoreticalCache(o, d, dateStr)?.fetchedAt)
+    .filter(Boolean)
+    .map((t) => new Date(t));
+  if (!times.length) return 'Horaires théoriques : jamais chargés.';
+  const oldest = new Date(Math.min(...times.map((t) => t.getTime())));
+  return `Horaires théoriques chargés à ${fmtTime(oldest)} (${dateStr}).`;
+}
+
+function initTheoreticalReload() {
+  const btn = document.getElementById('reload-theoretical-btn');
+  const statusEl = document.getElementById('theoretical-status');
+  statusEl.textContent = theoreticalStatusText();
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    statusEl.textContent = 'Chargement des horaires théoriques…';
+    const dateStr = dateStrForToday();
+    const pairs = [['hacquiniere', 'chatelet'], ['chatelet', 'ladefense'], ['ladefense', 'chatelet'], ['chatelet', 'hacquiniere']];
+    const results = await Promise.allSettled(pairs.map(([o, d]) => fetchTheoreticalOD(o, d, dateStr)));
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        const [o, d] = pairs[i];
+        setTheoreticalCache(o, d, dateStr, r.value);
+      }
+    });
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    statusEl.textContent = failed
+      ? `${theoreticalStatusText()} (${failed} échec(s))`
+      : theoreticalStatusText();
+    btn.disabled = false;
+    loadData();
+  });
 }
 
 function initSettings() {
@@ -532,6 +701,8 @@ function initSensToggle() {
 function init() {
   initSensToggle();
   initSettings();
+  initTimeOverride();
+  initTheoreticalReload();
   document.getElementById('refresh-btn').addEventListener('click', loadData);
   tickClock();
   setInterval(tickClock, 1000);

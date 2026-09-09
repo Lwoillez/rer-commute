@@ -18,8 +18,20 @@
       <button id="refresh-btn" type="button" class="refresh-btn">⟳ Rafraîchir</button>
     </div>
     <div class="clock-row">
-      <span>Heure actuelle : <strong id="current-time">--:--</strong></span>
+      <span class="clock-controls">
+        Heure actuelle : <strong id="current-time">--:--</strong>
+        <select id="time-override-hour" aria-label="Heure simulée"></select>
+        :
+        <select id="time-override-minute" aria-label="Minute simulée"></select>
+        <button id="time-override-reset" type="button" class="reset-time-btn" title="Revenir à l'heure actuelle">↺</button>
+      </span>
       <span id="status" class="muted"></span>
+    </div>
+    <div class="clock-row">
+      <span class="clock-controls">
+        <button id="reload-theoretical-btn" type="button" class="reset-time-btn">🕑 Horaires théoriques du jour</button>
+        <span id="theoretical-status" class="muted"></span>
+      </span>
     </div>
   </header>
 
